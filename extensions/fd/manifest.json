@@ -1,0 +1,33 @@
+{
+  "required_api_version": "2",
+  "name": "fd File Finder",
+  "description": "Search files and directories using fd",
+  "developer_name": "wzk",
+  "icon": "images/icon.svg",
+  "options": {
+    "query_debounce": 0.1
+  },
+  "preferences": [
+    {
+      "id": "fd_kw",
+      "type": "keyword",
+      "name": "fd",
+      "description": "Search files with fd",
+      "default_value": "fd"
+    },
+    {
+      "id": "max_results",
+      "type": "input",
+      "name": "Max Results",
+      "description": "Maximum number of results to show (passed to fd --max-results)",
+      "default_value": "20"
+    },
+    {
+      "id": "search_dirs",
+      "type": "text",
+      "name": "Search Directories",
+      "description": "One directory path per line. Default: home directory",
+      "default_value": ""
+    }
+  ]
+}
