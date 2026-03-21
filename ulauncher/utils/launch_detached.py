@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+import subprocess
 import sys
 
 from gi.repository import GLib
@@ -49,6 +50,28 @@ def launch_detached(cmd: list[str], working_dir: str | None = None) -> None:
     # under X11 for proper centering.
     if env.get("GDK_BACKEND") != "wayland":
         env.pop("GDK_BACKEND", None)
+
+    # Sync QT_FONT_DPI with the current Xft.dpi so Qt apps match the screen DPI.
+    # xrdb is X11-only and may not be available (e.g. under Wayland), so silently
+    # ignore failures. Falls back to 96 (the standard X11 default) when Xft.dpi
+    # is not found or xrdb is unavailable.
+    try:
+        result = subprocess.run(
+            ["xrdb", "-query"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        for line in result.stdout.splitlines():
+            if line.startswith("Xft.dpi:"):
+                dpi = line.split(":", 1)[1].strip()
+                if dpi:
+                    env["QT_FONT_DPI"] = dpi
+                    break
+        else:
+            env["QT_FONT_DPI"] = "96"
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        env["QT_FONT_DPI"] = "96"
 
     try:
         envp = [f"{k}={v}" for k, v in env.items()]
