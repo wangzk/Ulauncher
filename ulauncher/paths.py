@@ -7,8 +7,22 @@ BIN_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
 # ULAUNCHER_SYSTEM_PREFIX can be used by third party packagers like Nix
 # If not set, derive sys prefix from binary location likely /usr, /usr/local, or ~/.local
 SYSTEM_PREFIX = os.environ.get("ULAUNCHER_SYSTEM_PREFIX", os.path.dirname(BIN_DIR))
-# ULAUNCHER_SYSTEM_DATA_DIR is used when running in dev mode from source and during tests
-ASSETS = os.path.abspath(os.environ.get("ULAUNCHER_SYSTEM_DATA_DIR", f"{SYSTEM_PREFIX}/share/ulauncher"))
+
+# Data bundled inside the package (used by pip/uv installs)
+_PACKAGE_DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+
+# ASSETS resolution order:
+#   1. ULAUNCHER_SYSTEM_DATA_DIR env var (dev mode, tests, packager override)
+#   2. Package-bundled data (pip/uv install)
+#   3. System prefix install (deb/rpm)
+def _resolve_assets() -> str:
+    if env := os.environ.get("ULAUNCHER_SYSTEM_DATA_DIR", ""):
+        return os.path.abspath(env)
+    if os.path.isdir(_PACKAGE_DATA):
+        return os.path.abspath(_PACKAGE_DATA)
+    return os.path.abspath(f"{SYSTEM_PREFIX}/share/ulauncher")
+
+ASSETS = _resolve_assets()
 HOME = os.path.expanduser("~")
 XDG_DATA_DIRS = os.environ.get("XDG_DATA_DIRS", f"/usr/local/share/{os.path.pathsep}/usr/share/").split(os.path.pathsep)
 CONFIG = os.path.join(os.environ.get("XDG_CONFIG_HOME", f"{HOME}/.config"), "ulauncher")

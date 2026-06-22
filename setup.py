@@ -39,18 +39,17 @@ def data_files_from_path(target_path: str, source_path: str) -> Iterator[tuple[s
 setuptools.setup(
     license="GPL-3.0",
     packages=setuptools.find_packages(exclude=["tests", "conftest.py"]),
-    # These will be placed in /usr
+    # These will be placed in /usr (used by system packaging; pip/uv use package_data instead)
     data_files=[
         ("share/applications", ["io.ulauncher.Ulauncher.desktop"]),
         ("share/dbus-1/services", ["io.ulauncher.Ulauncher.service"]),
         ("share/man/man1", [gzip_file("ulauncher.1")]),
         ("lib/systemd/user", ["ulauncher.service"]),
         ("share/licenses/ulauncher", ["LICENSE"]),
-        # Recursively add data as share/ulauncher, then icons
-        *data_files_from_path("share/ulauncher", "data"),
-        *data_files_from_path("share/icons/hicolor/scalable", "data/icons/system"),
+        *data_files_from_path("share/ulauncher", "ulauncher/data"),
+        *data_files_from_path("share/icons/hicolor/scalable", "ulauncher/data/icons/system"),
     ],
-    # can also be specified in pyproject.toml as tool.setuptools.script-files,
-    # but it seems to be both "discouraged" and broken
+    # Entry points are in pyproject.toml [project.scripts];
+    # keep bin/ scripts for system install backward compatibility
     scripts=["bin/ulauncher", "bin/ulauncher-toggle"],
 )

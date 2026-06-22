@@ -20,6 +20,38 @@ from ulauncher.utils.logging_color_formatter import ColoredFormatter
 from ulauncher.utils.migrate import v5_to_v6
 
 
+def toggle() -> None:
+    """Toggle Ulauncher window or set search query via D-Bus (used by ulauncher-toggle entry point)."""
+    import sys
+
+    from gi.repository import Gio, GLib
+
+    action_name = "toggle-window"
+    parameters: list[GLib.Variant] = []
+
+    if len(sys.argv) >= 3 and sys.argv[1] in ("--query", "-q"):
+        action_name = "set-query"
+        parameters = [GLib.Variant("s", sys.argv[2])]
+
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    proxy = Gio.DBusProxy.new_sync(
+        bus,
+        Gio.DBusProxyFlags.NONE,
+        None,
+        "io.ulauncher.Ulauncher",
+        "/io/ulauncher/Ulauncher",
+        "org.gtk.Actions",
+        None,
+    )
+    proxy.call_sync(
+        "Activate",
+        GLib.Variant("(sava{sv})", (action_name, parameters, {})),
+        Gio.DBusCallFlags.NONE,
+        -1,
+        None,
+    )
+
+
 def main() -> None:  # noqa: PLR0912, PLR0915
     """
     Main function that starts everything

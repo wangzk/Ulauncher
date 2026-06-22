@@ -15,7 +15,7 @@ mock_xdg_dirs = {
 for path in mock_xdg_dirs.values():
     os.makedirs(path, exist_ok=True)
 
-os.environ.update(mock_xdg_dirs, ULAUNCHER_SYSTEM_DATA_DIR=f"{os.path.dirname(__file__)}/data")
+os.environ.update(mock_xdg_dirs, ULAUNCHER_SYSTEM_DATA_DIR=f"{os.path.dirname(__file__)}/ulauncher/data")
 
 # prevent leaking pytest arguments to ulaunchers arg parser
 # this way is not recommended, but it works and avoids needing tons of fixtures
