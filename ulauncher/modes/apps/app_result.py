@@ -19,6 +19,7 @@ class AppResult(Result):
     searchable = True
     app_id = ""
     _executable = ""
+    _name_en = ""
     actions = {"launch": {"name": "Launch application", "icon": "system-run"}}
 
     def __init__(self, app_info: DesktopAppInfo) -> None:
@@ -32,6 +33,9 @@ class AppResult(Result):
             # get_executable uses Exec, which is always specified, but it will return the actual executable.
             # Sometimes the actual executable is not the app to start, but a wrappers like "env" or "sh -c"
             _executable=basename(app_info.get_string("TryExec") or app_info.get_executable() or ""),
+            # Untranslated Name field (usually English) as fallback for cross-language search.
+            # e.g. "Nutstore" when display name is "坚果云", or "Baidu Netdisk" for "百度网盘"
+            _name_en=app_info.get_string("Name") or "",
         )
 
     @staticmethod
@@ -54,12 +58,18 @@ class AppResult(Result):
             index = sorted_app_ids.index(self.app_id) if self.app_id in sorted_app_ids else count
             frequency_weight = 1.0 - (index / count * 0.1) + 0.05
 
-        return [
+        fields: list[tuple[str, float]] = [
             (self.name, 1 * frequency_weight),
             (self._executable, 0.8 * frequency_weight),  # command names, such as "baobab" or "nautilus"
             (self.description, 0.7 * frequency_weight),
             *[(k, 0.6 * frequency_weight) for k in self.keywords],
         ]
+        # Add untranslated name (usually English) as fallback for cross-language search.
+        # This ensures apps can be found by their original name even when the display name
+        # is localized (e.g., Flatpak apps with Chinese names like "坚果云"/"百度网盘").
+        if self._name_en and self._name_en != self.name:
+            fields.append((self._name_en, 0.9 * frequency_weight))
+        return fields
 
     def bump_starts(self) -> None:
         starts = app_starts.get(self.app_id, 0)
