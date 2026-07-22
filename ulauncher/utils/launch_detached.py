@@ -40,16 +40,38 @@ def detach_child() -> None:
             os.dup2(null_fd, orig_fd)
 
 
+def _get_x11_display_name() -> str | None:
+    """
+    Return the X11 display Ulauncher is connected to.
+
+    Prefers the live GDK display name over the static $DISPLAY env var, which may be
+    missing or stale when Ulauncher is started via D-Bus activation or as a systemd
+    user service (the manager environment is imported asynchronously at login).
+    """
+    try:
+        from gi.repository import GdkX11
+
+        if x11_display := GdkX11.X11Display.get_default():
+            return x11_display.get_name()
+    except (ImportError, RuntimeError):
+        pass
+    return os.environ.get("DISPLAY")
+
+
 def launch_detached(cmd: list[str], working_dir: str | None = None) -> None:
     use_systemd_run = SystemdController("ulauncher").is_active()
-    if use_systemd_run:
-        cmd = ["systemd-run", "--user", "--scope", *cmd]
 
     env = dict(os.environ.items())
     # Make sure GDK apps aren't forced to use x11 on wayland due to ulauncher's need to run
     # under X11 for proper centering.
     if env.get("GDK_BACKEND") != "wayland":
         env.pop("GDK_BACKEND", None)
+
+    # Propagate the X11 display Ulauncher is actually connected to, so launched
+    # programs target the same display instead of auto-detecting the Xorg session.
+    # $DISPLAY may be absent when Ulauncher is D-Bus/systemd activated.
+    if display_name := _get_x11_display_name():
+        env["DISPLAY"] = display_name
 
     # Sync QT_FONT_DPI with the current Xft.dpi so Qt apps match the screen DPI.
     # xrdb is X11-only and may not be available (e.g. under Wayland), so silently
@@ -72,6 +94,16 @@ def launch_detached(cmd: list[str], working_dir: str | None = None) -> None:
             env["QT_FONT_DPI"] = "96"
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         env["QT_FONT_DPI"] = "96"
+
+    # When launched via systemd-run, explicitly forward display-related env vars
+    # through --setenv so they reach the program even if the systemd user manager
+    # environment has drifted from Ulauncher's own environment.
+    if use_systemd_run:
+        setenv_args: list[str] = []
+        for key in ("DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY"):
+            if value := env.get(key):
+                setenv_args.extend(["--setenv", f"{key}={value}"])
+        cmd = ["systemd-run", "--user", "--scope", *setenv_args, *cmd]
 
     try:
         envp = [f"{k}={v}" for k, v in env.items()]
